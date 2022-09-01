@@ -13,7 +13,7 @@ networks:
   # Collector
 services:
   otelcol:
-    image: quay.io/signalfx/splunk-otel-collector
+    image: public.ecr.aws/aws-observability/aws-otel-collector:latest
     command: [ "--config=/etc/otelcol-config.yml" ]
     volumes:
       - ./src/otelcollector/otelcol-config.yml:/etc/otelcol-config.yml
