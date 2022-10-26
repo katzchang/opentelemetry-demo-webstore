@@ -237,7 +237,6 @@ services:
       - frontend
       - featureflagservice
       - loadgenerator
-      - grafana
 
   loadgenerator:
     image: ${IMAGE_NAME}:${IMAGE_VERSION}-loadgenerator
@@ -453,72 +452,27 @@ services:
       timeout: 5s
       retries: 5
 
-  # Jaeger
-  jaeger:
-    image: jaegertracing/all-in-one
-    container_name: jaeger
-    command: ["--memory.max-traces", "10000", "--query.base-path", "/jaeger/ui"]
-    deploy:
-      resources:
-        limits:
-          memory: 275M
-    restart: always
-    ports:
-      - "${JAEGER_SERVICE_PORT}"                    # Jaeger UI
-      - "4317"                           # OTLP gRPC default port
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    logging: *logging
-
-  # Grafana
-  grafana:
-    image: grafana/grafana:9.1.0
-    container_name: grafana
-    volumes:
-      - ./src/grafana/grafana.ini:/etc/grafana/grafana.ini
-      - ./src/grafana/provisioning/:/etc/grafana/provisioning/
-    ports:
-      - "${GRAFANA_SERVICE_PORT}"
-    logging: *logging
-
   # OpenTelemetry Collector
   otelcol:
-    image: otel/opentelemetry-collector-contrib:0.61.0
+    image: quay.io/signalfx/splunk-otel-collector
     container_name: otel-col
     deploy:
       resources:
         limits:
           memory: 100M
     restart: always
+    env_file:
+      - ./src/otelcollector/.env
     command: [ "--config=/etc/otelcol-config.yml", "--config=/etc/otelcol-config-extras.yml" ]
     volumes:
       - ./src/otelcollector/otelcol-config.yml:/etc/otelcol-config.yml
       - ./src/otelcollector/otelcol-config-extras.yml:/etc/otelcol-config-extras.yml
     ports:
       - "4317"          # OTLP over gRPC receiver
-      - "4318:4318"     # OTLP over HTTP receiver
+      - "4318:4318"     # OTLP over HTTP receive
+      - "9080"
       - "9464"          # Prometheus exporter
       - "8888"          # metrics endpoint
-    depends_on:
-      - jaeger
-    logging: *logging
-
-  # Prometheus
-  prometheus:
-    image: quay.io/prometheus/prometheus:v2.34.0
-    container_name: prometheus
-    command:
-      - --web.console.templates=/etc/prometheus/consoles
-      - --web.console.libraries=/etc/prometheus/console_libraries
-      - --storage.tsdb.retention.time=1h
-      - --config.file=/etc/prometheus/prometheus-config.yaml
-      - --storage.tsdb.path=/prometheus
-      - --web.enable-lifecycle
-      - --web.route-prefix=/
-    volumes:
-      - ./src/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
-    ports:
-      - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
     logging: *logging
 
   # Redis used by Cart service
